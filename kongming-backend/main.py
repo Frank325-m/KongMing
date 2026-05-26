@@ -1,17 +1,30 @@
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
 import requests
+import json
 
 app = FastAPI(title="孔明AI军师(本地Ollama版)")
 
-# 跨域 for vue
+# 全局跨域配置 - 针对SSE优化
+# app.add_middleware(
+#     CORSMiddleware,
+#     allow_origins=["http://localhost:5173", "http://127.0.0.1:5173"],  # 明确指定前端地址
+#     allow_credentials=True,
+#     allow_methods=["GET", "POST", "OPTIONS"],  # SSE需要GET和OPTIONS
+#     allow_headers=["*"],
+#     expose_headers=["*"],  # 暴露所有头给前端
+#     max_age=86400  # 预检请求缓存时间
+# )
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=["*"],  # 明确指定前端地址
     allow_credentials=True,
-    allow_methods=["*"],
+    allow_methods=["*"],  # SSE需要GET和OPTIONS
     allow_headers=["*"],
+    expose_headers=["*"],  # 暴露所有头给前端
+    max_age=86400  # 预检请求缓存时间
 )
 
 #前端请求格式
@@ -54,10 +67,87 @@ KONGMING_FULL_PERSONA = """
 OLLAMA_API = "http://localhost:11434/api/chat"
 # 固定本地模型（可自行替换）
 MODEL_NAME = "qwen2.5:7b"
+# 最优沉稳参数（第3章优化定稿）
+TEMP = 0.45
+TOP_P = 0.7
 
 @app.get("/")
 def home():
     return {"message": "孔明后端已就位，恭候主公"}
+
+# 处理OPTIONS预检请求
+@app.options("/chat-stream")
+async def options_chat_stream():
+    from fastapi.responses import JSONResponse
+    response = JSONResponse(content={})
+    response.headers["Access-Control-Allow-Origin"] = "*"
+    response.headers["Access-Control-Allow-Methods"] = "GET, POST, OPTIONS"
+    response.headers["Access-Control-Allow-Headers"] = "*"
+    response.headers["Access-Control-Allow-Credentials"] = "true"
+    response.headers["Access-Control-Max-Age"] = "86400"  # 24小时
+    return response
+
+# 流式对话接口（新版核心）- 支持GET和POST方法
+@app.get("/chat-stream")
+@app.post("/chat-stream")
+async def chat_stream(request: Request, question: str = None):
+    # 处理GET请求（从查询参数获取question）
+    # 或POST请求（从请求体获取question）
+    if not question:
+        # 如果是POST请求，尝试从请求体获取
+        try:
+            body = await request.body()
+            if body:
+                data = await request.json()
+                question = data.get("question")
+        except:
+            pass
+    
+    if not question:
+        return {"error": "问题不能为空"}
+    
+    payload = {
+        "model": MODEL_NAME,
+        "messages": [
+            {"role": "system", "content": KONGMING_FULL_PERSONA},
+            {"role": "user", "content": question}
+        ],
+        "stream": True,
+        "temperature": TEMP,
+        "top_p": TOP_P
+    }
+
+    def stream_generator():
+        with requests.post(OLLAMA_API, json=payload, stream=True) as res:
+            for line in res.iter_lines(decode_unicode=True):
+                if line:
+                    try:
+                        json_data = json.loads(line)
+                        # 逐字推送内容
+                        if "message" in json_data and "content" in json_data["message"]:
+                            yield json_data["message"]["content"]
+                    except:
+                        continue
+
+    # 创建StreamingResponse
+    response = StreamingResponse(
+        stream_generator(), 
+        media_type="text/event-stream",
+        headers={
+            "Cache-Control": "no-cache, no-store, must-revalidate",
+            "Pragma": "no-cache",
+            "Expires": "0",
+            "Connection": "keep-alive",
+            "X-Accel-Buffering": "no",  # 禁用Nginx缓冲
+            "Access-Control-Allow-Origin": "http://localhost:5173",
+            "Access-Control-Allow-Credentials": "true",
+            "Access-Control-Expose-Headers": "*",
+            "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
+            "Access-Control-Allow-Headers": "*"
+        }
+    )
+    
+    return response
 
 @app.post("/chat")
 def chat(req: ChatRequest):
@@ -69,8 +159,8 @@ def chat(req: ChatRequest):
             {"role": "user", "content": req.question}
         ],
         "stream": False,
-        "temperature": 0.75,  # 适度创意，保证谋略灵活性，不随机跑偏
-        "top_p": 0.7  # 限制候选词汇范围，进一步减少随机发挥
+        "temperature": TEMP,  # 适度创意，保证谋略灵活性，不随机跑偏
+        "top_p": TOP_P  # 限制候选词汇范围，进一步减少随机发挥
     }
 
     try:
