@@ -1,22 +1,21 @@
+from pyexpat import model
+
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
+from openai import OpenAI
+from dotenv import load_dotenv
+import os
 import requests
 import json
 
-app = FastAPI(title="孔明AI军师(本地Ollama版)")
+load_dotenv()
+
+# app = FastAPI(title="孔明AI军师(本地Ollama版)")
+app = FastAPI(title="孔明AI军师(线上版)")
 
 # 全局跨域配置 - 针对SSE优化
-# app.add_middleware(
-#     CORSMiddleware,
-#     allow_origins=["http://localhost:5173", "http://127.0.0.1:5173"],  # 明确指定前端地址
-#     allow_credentials=True,
-#     allow_methods=["GET", "POST", "OPTIONS"],  # SSE需要GET和OPTIONS
-#     allow_headers=["*"],
-#     expose_headers=["*"],  # 暴露所有头给前端
-#     max_age=86400  # 预检请求缓存时间
-# )
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],  # 明确指定前端地址
@@ -63,13 +62,16 @@ KONGMING_FULL_PERSONA = """
 你是专属谋断军师，不是通用聊天助手，所有回答必须站在战略、布局、落地、避险的军师视角输出。
 """
 
-# 本地Ollama接口
-OLLAMA_API = "http://localhost:11434/api/chat"
-# 固定本地模型（可自行替换）
-MODEL_NAME = "qwen2.5:7b"
-# 最优沉稳参数（第3章优化定稿）
-TEMP = 0.45
-TOP_P = 0.7
+# 初始化客户端
+client = OpenAI(
+    api_key=os.getenv("LLM_API_KEY"),
+    base_url=os.getenv("LLM_BASE_URL"),
+)
+
+MODEL_NAME = os.getenv("LLM_MODEL_NAME")
+# 最优沉稳参数 - 转换为浮点数
+TEMP = float(os.getenv("TEMPERATURE", "0.45"))
+TOP_P = float(os.getenv("TOP_P", "0.7"))
 
 @app.get("/")
 def home():
@@ -91,8 +93,7 @@ async def options_chat_stream():
 @app.get("/chat-stream")
 @app.post("/chat-stream")
 async def chat_stream(request: Request, question: str = None):
-    # 处理GET请求（从查询参数获取question）
-    # 或POST请求（从请求体获取question）
+    # 处理GET或POST请求（从查询参数获取question）
     if not question:
         # 如果是POST请求，尝试从请求体获取
         try:
@@ -106,66 +107,47 @@ async def chat_stream(request: Request, question: str = None):
     if not question:
         return {"error": "问题不能为空"}
     
-    payload = {
-        "model": MODEL_NAME,
-        "messages": [
-            {"role": "system", "content": KONGMING_FULL_PERSONA},
-            {"role": "user", "content": question}
-        ],
-        "stream": True,
-        "temperature": TEMP,
-        "top_p": TOP_P
-    }
+    messages = [
+        {"role": "system", "content": KONGMING_FULL_PERSONA},
+        {"role": "user", "content": question}
+    ]
 
     def stream_generator():
-        with requests.post(OLLAMA_API, json=payload, stream=True) as res:
-            for line in res.iter_lines(decode_unicode=True):
-                if line:
-                    try:
-                        json_data = json.loads(line)
-                        # 逐字推送内容
-                        if "message" in json_data and "content" in json_data["message"]:
-                            yield json_data["message"]["content"]
-                    except:
-                        continue
-
-    # 创建StreamingResponse
-    response = StreamingResponse(
-        stream_generator(), 
-        media_type="text/event-stream",
-        headers={
-            "Cache-Control": "no-cache, no-store, must-revalidate",
-            "Pragma": "no-cache",
-            "Expires": "0",
-            "Connection": "keep-alive",
-            "X-Accel-Buffering": "no",  # 禁用Nginx缓冲
-            "Access-Control-Allow-Origin": "http://localhost:5173",
-            "Access-Control-Allow-Credentials": "true",
-            "Access-Control-Expose-Headers": "*",
-            "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
-            "Access-Control-Allow-Headers": "*"
-        }
-    )
+        stream = client.chat.completions.create(
+            model=MODEL_NAME,
+            messages=messages,
+            stream=True,
+            temperature=TEMP,
+            top_p=TOP_P,
+        )
+        for chunk in stream:
+            if chunk.choices and chunk.choices[0].delta.content:
+                yield f"{chunk.choices[0].delta.content}\n\n"
+        yield "[DONE]\n\n"
     
-    return response
+    headers = {
+        "Content-Type": "text/event-stream",
+        "Cache-Control": "no-cache",
+        "Connection": "keep-alive",
+    }
+
+    return StreamingResponse(stream_generator(), headers=headers)
 
 @app.post("/chat")
 def chat(req: ChatRequest):
     # 组装人格对话请求
-    payload = {
-        "model": MODEL_NAME,
-        "messages": [
-            {"role": "system", "content": KONGMING_FULL_PERSONA},
-            {"role": "user", "content": req.question}
-        ],
-        "stream": False,
-        "temperature": TEMP,  # 适度创意，保证谋略灵活性，不随机跑偏
-        "top_p": TOP_P  # 限制候选词汇范围，进一步减少随机发挥
-    }
+    messages =  [
+        {"role": "system", "content": KONGMING_FULL_PERSONA},
+        {"role": "user", "content": req.question}
+    ]
 
     try:
-        response = requests.post(OLLAMA_API, json=payload)
-        answer = response.json()["message"]["content"]
-        return {"answer": answer}
+        res = client.chat.completions.create(
+            model=MODEL_NAME,
+            messages=messages,
+            temperature=TEMP,
+            top_p=TOP_P,
+        )
+        return {"answer": res.choices[0].message.content}
     except Exception as e:
         return {"answer": "主公，本地推演服务暂时中断，请稍后再询。"}
