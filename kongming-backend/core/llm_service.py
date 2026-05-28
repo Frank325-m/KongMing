@@ -3,8 +3,10 @@ from core.config import client, MODEL_NAME, TEMP, TOP_P
 
 
 class LLMService:
+    """LLM服务封装：流式生成孔明回复"""
     @staticmethod
     def generate_stream_response(messages):
+        """流式生成回复，逐字返回"""
         try:
             stream = client.chat.completions.create(
                 model=MODEL_NAME,
@@ -29,4 +31,5 @@ class LLMService:
             return None
 
 
+# 全局LLM服务实例
 llm_service = LLMService()

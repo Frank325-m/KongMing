@@ -28,20 +28,24 @@ KONGMING_FULL_PERSONA = """
 你是专属谋断军师，不是通用聊天助手，所有回答必须站在战略、布局、落地、避险的军师视角输出。
 """
 
-# 初始化OpenAI客户端
+# 初始化OpenAI兼容客户端
 client = OpenAI(
     api_key=os.getenv("LLM_API_KEY"),
     base_url=os.getenv("LLM_BASE_URL"),
 )
 
-# 模型配置
+# 模型参数配置
 MODEL_NAME = os.getenv("LLM_MODEL_NAME")
-TEMP = float(os.getenv("TEMPERATURE", "0.45"))
-TOP_P = float(os.getenv("TOP_P", "0.7"))
+TEMP = float(os.getenv("TEMPERATURE", "0.45"))  # 温度参数控制随机性
+TOP_P = float(os.getenv("TOP_P", "0.7"))        # top_p控制采样范围
 
-# 会话历史长度限制
+# 会话历史长度限制，防止token过多
 MAX_HISTORY_LENGTH = 22  # system + 10*2轮对话
 
 # 每日对话配额配置
-QUOTA_GUEST_DAILY_LIMIT = int(os.getenv("QUOTA_GUEST_DAILY_LIMIT", "3"))
-QUOTA_USER_DAILY_LIMIT = int(os.getenv("QUOTA_USER_DAILY_LIMIT", "5"))
+QUOTA_GUEST_DAILY_LIMIT = int(os.getenv("QUOTA_GUEST_DAILY_LIMIT", "5"))
+QUOTA_USER_DAILY_LIMIT = int(os.getenv("QUOTA_USER_DAILY_LIMIT", "30"))
+
+# 邀请码准入配置
+INVITE_CODE = os.getenv("INVITE_CODE", "kongming2026")
+INVITE_REQUIRED = os.getenv("INVITE_REQUIRED", "false").lower() == "true"
