@@ -41,3 +41,7 @@ TOP_P = float(os.getenv("TOP_P", "0.7"))
 
 # 会话历史长度限制
 MAX_HISTORY_LENGTH = 22  # system + 10*2轮对话
+
+# 每日对话配额配置
+QUOTA_GUEST_DAILY_LIMIT = int(os.getenv("QUOTA_GUEST_DAILY_LIMIT", "3"))
+QUOTA_USER_DAILY_LIMIT = int(os.getenv("QUOTA_USER_DAILY_LIMIT", "5"))

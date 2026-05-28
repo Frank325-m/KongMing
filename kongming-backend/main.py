@@ -9,7 +9,7 @@ from core.models import (
 )
 from core.session_manager import session_manager
 from core.llm_service import llm_service
-from core.config import MAX_HISTORY_LENGTH
+from core.config import MAX_HISTORY_LENGTH, QUOTA_GUEST_DAILY_LIMIT, QUOTA_USER_DAILY_LIMIT
 
 app = FastAPI(title="孔明AI军师")
 
@@ -28,6 +28,14 @@ app.add_middleware(
 @app.get("/")
 def home():
     return {"message": "孔明后端已就位，恭候主公"}
+
+
+@app.get("/quota-config")
+def get_quota_config():
+    return {
+        "guest_daily_limit": QUOTA_GUEST_DAILY_LIMIT,
+        "user_daily_limit": QUOTA_USER_DAILY_LIMIT
+    }
 
 
 @app.post("/new-session")

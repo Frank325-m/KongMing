@@ -35,14 +35,24 @@
 </template>
 
 <script setup>
-import { ref, onMounted } from 'vue'
+import { ref, onMounted, watch, computed } from 'vue'
+import { getUserData } from '../utils/quota'
 
-const STORAGE_KEY = 'kongming-wisdom-bag'
-
+const props = defineProps({})
 const emit = defineEmits(['close'])
 
+const userData = ref(getUserData())
 const wisdomList = ref([])
 const wisdomHashSet = ref(new Set())
+
+const STORAGE_KEY_PREFIX = 'kongming-wisdom-bag'
+
+const getStorageKey = () => {
+  if (userData.value.userType === 'user' && userData.value.email) {
+    return `${STORAGE_KEY_PREFIX}-${userData.value.email}`
+  }
+  return STORAGE_KEY_PREFIX
+}
 
 const hashCode = (str) => {
   let hash = 0
@@ -62,24 +72,30 @@ const buildHashSet = () => {
 
 const loadWisdomList = () => {
   try {
-    console.log('📚 Loading wisdom list...')
-    const saved = localStorage.getItem(STORAGE_KEY)
+    const storageKey = getStorageKey()
+    console.log('📚 Loading wisdom list from:', storageKey)
+    const saved = localStorage.getItem(storageKey)
     if (saved) {
       wisdomList.value = JSON.parse(saved)
       buildHashSet()
       console.log('📚 Loaded wisdom list:', wisdomList.value.length, 'items')
     } else {
+      wisdomList.value = []
+      buildHashSet()
       console.log('📚 No wisdom list found, starting fresh')
     }
   } catch (e) {
     console.error('加载锦囊失败:', e)
+    wisdomList.value = []
+    buildHashSet()
   }
 }
 
 const saveWisdomList = () => {
   try {
-    console.log('📚 Saving wisdom list:', wisdomList.value.length, 'items')
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(wisdomList.value))
+    const storageKey = getStorageKey()
+    console.log('📚 Saving wisdom list to:', storageKey, wisdomList.value.length, 'items')
+    localStorage.setItem(storageKey, JSON.stringify(wisdomList.value))
   } catch (e) {
     console.error('保存锦囊失败:', e)
   }
@@ -150,13 +166,20 @@ const formatTime = (timeStr) => {
   }
 }
 
+// 监听用户变化，切换锦囊数据
+const refreshUserData = () => {
+  userData.value = getUserData()
+  loadWisdomList()
+}
+
 onMounted(() => {
   console.log('📚 WisdomBag component mounted')
   loadWisdomList()
 })
 
 defineExpose({
-  addWisdom
+  addWisdom,
+  refreshUserData
 })
 </script>
 
@@ -165,7 +188,8 @@ defineExpose({
   position: fixed;
   top: 0;
   right: 0;
-  bottom: 0; left: 0;
+  bottom: 0;
+  left: 0;
   background-color: rgba(0, 0, 0, 0.5);
   display: flex;
   justify-content: flex-end;
@@ -222,7 +246,7 @@ defineExpose({
 .wisdom-bag-close {
   width: 36px;
   height: 36px;
-  border: 1px solid #334155;
+  border: 1px solid #475569;
   background: transparent;
   color: #94a3b8;
   font-size: 20px;
@@ -348,8 +372,11 @@ defineExpose({
   line-height: 1.8;
   margin-bottom: 12px;
   display: -webkit-box;
+  display: box;
   -webkit-line-clamp: 4;
+  line-clamp: 4;
   -webkit-box-orient: vertical;
+  box-orient: vertical;
   overflow: hidden;
 }
 

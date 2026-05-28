@@ -4,8 +4,31 @@
     <div class="chat-header">
       <button class="menu-toggle" @click="$emit('toggle-sidebar')">☰</button>
       <span class="title">{{ currentSessionTitle || '孔明军师 - 专属谋断' }}</span>
-      <button class="wisdom-bag-toggle" @click="$emit('open-wisdom-bag')">
-        <span class="wisdom-icon">📜</span> 锦囊
+      <div class="header-right">
+        <button class="wisdom-bag-toggle" @click="$emit('open-wisdom-bag')">
+          <span class="wisdom-icon">📜</span> 锦囊
+        </button>
+      </div>
+    </div>
+
+    <div class="user-info-bar" v-if="userType">
+      <div class="user-info-left">
+        <span class="user-avatar">{{ userType === 'user' ? '👤' : '🚶' }}</span>
+        <div class="user-details">
+          <span class="user-name">{{ userType === 'user' ? userEmail : '访客' }}</span>
+          <span class="user-type">{{ userType === 'user' ? '登录用户' : '访客模式' }}</span>
+        </div>
+      </div>
+      <div class="quota-info">
+        <span class="quota-text">今日剩余</span>
+        <span class="quota-count" :class="{ low: remainingQuota <= 2 }">{{ remainingQuota }}</span>
+        <span class="quota-total">/ {{ todayLimit }}</span>
+      </div>
+      <button class="logout-btn" v-if="userType === 'user'" @click="$emit('logout')">
+        退出
+      </button>
+      <button class="login-btn" v-else @click="$emit('open-login-modal')">
+        登录
       </button>
     </div>
 
@@ -56,10 +79,14 @@ const props = defineProps({
   messages: { type: Array, required: true },
   loading: { type: Boolean, default: false },
   sidebarCollapsed: { type: Boolean, default: false },
-  currentSessionTitle: { type: String, default: '' }
+  currentSessionTitle: { type: String, default: '' },
+  remainingQuota: { type: Number, default: 5 },
+  userType: { type: String, default: 'guest' },
+  userEmail: { type: String, default: '' },
+  todayLimit: { type: Number, default: 5 }
 })
 
-const emit = defineEmits(['send-message', 'toggle-sidebar', 'open-wisdom-bag', 'collect-wisdom'])
+const emit = defineEmits(['send-message', 'toggle-sidebar', 'open-wisdom-bag', 'collect-wisdom', 'logout', 'open-login-modal'])
 
 const chatBox = ref(null)
 const inputText = ref('')
@@ -151,6 +178,12 @@ watch(
   letter-spacing: 1px;
 }
 
+.header-right {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
 .wisdom-bag-toggle {
   padding: 8px 16px;
   border: 1px solid #d4b878;
@@ -173,6 +206,110 @@ watch(
 
 .wisdom-icon {
   font-size: 16px;
+}
+
+.user-info-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 24px;
+  background-color: #121b2b;
+  border-bottom: 1px solid #283447;
+}
+
+.user-info-left {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.user-avatar {
+  font-size: 32px;
+}
+
+.user-details {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.user-name {
+  color: #e6c88c;
+  font-size: 14px;
+  font-weight: 500;
+  max-width: 200px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.user-type {
+  color: #64748b;
+  font-size: 12px;
+}
+
+.quota-info {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  background: rgba(61, 90, 76, 0.2);
+  padding: 8px 16px;
+  border-radius: 8px;
+  border: 1px solid #3d5a4c;
+}
+
+.quota-text {
+  color: #94a3b8;
+  font-size: 13px;
+}
+
+.quota-count {
+  color: #e6c88c;
+  font-size: 20px;
+  font-weight: 700;
+}
+
+.quota-count.low {
+  color: #ef4444;
+}
+
+.quota-total {
+  color: #64748b;
+  font-size: 14px;
+}
+
+.logout-btn {
+  padding: 8px 16px;
+  border: 1px solid #475569;
+  background: transparent;
+  color: #94a3b8;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 13px;
+  transition: all 0.3s ease;
+}
+
+.logout-btn:hover {
+  border-color: #d4b878;
+  color: #d4b878;
+  background: rgba(212, 184, 120, 0.1);
+}
+
+.login-btn {
+  padding: 8px 16px;
+  border: 2px solid #d4b878;
+  background: linear-gradient(180deg, #3d5a4c, #2a4036);
+  color: #e6c88c;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 13px;
+  transition: all 0.3s ease;
+  font-weight: 500;
+}
+
+.login-btn:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(212, 184, 120, 0.3);
 }
 
 .chat-box {
@@ -357,6 +494,20 @@ watch(
 @media (max-width: 768px) {
   .menu-toggle {
     display: block;
+  }
+
+  .user-info-bar {
+    padding: 10px 16px;
+    flex-wrap: wrap;
+    gap: 10px;
+  }
+
+  .quota-info {
+    padding: 6px 12px;
+  }
+
+  .user-name {
+    max-width: 120px;
   }
 
   .chat-box {

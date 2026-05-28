@@ -144,3 +144,17 @@ export const sendChatRequest = (question, sessionId, onChunk, onError, onComplet
     readStream()
   }).catch(onError)
 }
+
+export const getQuotaConfig = async () => {
+  try {
+    const response = await fetch(API_BASE + '/quota-config')
+    return await response.json()
+  } catch (error) {
+    console.error('获取配额配置失败:', error)
+    // 失败时返回默认值
+    return {
+      guest_daily_limit: 5,
+      user_daily_limit: 30
+    }
+  }
+}
