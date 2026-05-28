@@ -3,17 +3,16 @@
   <div class="quota-overlay" v-if="show" @click.self="$emit('close')">
     <div class="quota-modal">
       <div class="quota-icon">⏳</div>
-      <h3 class="quota-title">主公，今日问数已满</h3>
+      <h3 class="quota-title">今日策论已毕</h3>
       <div class="quota-message">
-        <p>今日策论已毕，</p>
-        <p>请明日再临，听吾妙计。</p>
+        <p>今日问数已用尽</p>
+        <p>请明日再临，听吾妙计</p>
       </div>
       <div class="quota-hint">
-        <p>访客：每日 5 次</p>
-        <p>登录用户：每日 30 次</p>
+        <p>若想多问几策，不妨留下名帖</p>
       </div>
       <button class="btn-confirm" @click="$emit('close')">
-        已知晓
+        知晓，明日再来
       </button>
     </div>
   </div>
@@ -49,8 +48,8 @@ const emit = defineEmits(['close'])
   border: 2px solid #d4b878;
   border-radius: 16px;
   width: 90%;
-  max-width: 400px;
-  padding: 36px 32px;
+  max-width: 420px;
+  padding: 40px 32px;
   text-align: center;
   animation: fadeIn 0.3s ease;
 }
@@ -67,12 +66,12 @@ const emit = defineEmits(['close'])
 }
 
 .quota-icon {
-  font-size: 64px;
-  margin-bottom: 16px;
+  font-size: 72px;
+  margin-bottom: 20px;
 }
 
 .quota-title {
-  font-size: 24px;
+  font-size: 26px;
   color: #e6c88c;
   margin-bottom: 20px;
 }
@@ -80,15 +79,15 @@ const emit = defineEmits(['close'])
 .quota-message {
   color: #cbd5e1;
   font-size: 16px;
-  line-height: 1.8;
+  line-height: 2;
   margin-bottom: 24px;
 }
 
 .quota-hint {
   color: #64748b;
   font-size: 13px;
-  line-height: 1.6;
-  margin-bottom: 28px;
+  line-height: 1.8;
+  margin-bottom: 32px;
   padding: 16px;
   background-color: rgba(212, 184, 120, 0.1);
   border-radius: 10px;
@@ -96,7 +95,7 @@ const emit = defineEmits(['close'])
 
 .btn-confirm {
   width: 100%;
-  padding: 14px 32px;
+  padding: 14px 20px;
   border: 2px solid #d4b878;
   background: linear-gradient(180deg, #3d5a4c, #2a4036);
   color: #e6c88c;
@@ -104,6 +103,7 @@ const emit = defineEmits(['close'])
   font-size: 16px;
   cursor: pointer;
   transition: all 0.3s ease;
+  font-weight: 500;
 }
 
 .btn-confirm:hover {

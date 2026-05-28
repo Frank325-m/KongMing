@@ -3,16 +3,17 @@
   <div class="login-overlay" v-if="show" @click.self="$emit('close')">
     <div class="login-modal">
       <div class="login-header">
-        <h3>孔明军师</h3>
-        <p class="login-subtitle">三分天下，尽在掌中</p>
+        <div class="login-icon">🎐</div>
+        <h3 class="login-title">孔明在此候教</h3>
+        <p class="login-subtitle">请选择身份以入内</p>
       </div>
 
       <div class="login-content">
         <div class="login-options">
           <button class="btn-guest" @click="handleGuestLogin">
             <span class="btn-icon">🚶</span>
-            <span>访客模式</span>
-            <span class="btn-info">每日可询 {{ guestLimit }} 次</span>
+            <span class="btn-main">访客入内</span>
+            <span class="btn-info">每日可问 {{ guestLimit }} 策</span>
           </button>
 
           <div class="divider">
@@ -20,11 +21,11 @@
           </div>
 
           <div class="email-login">
-            <label class="email-label">主公请留名（邮箱）</label>
+            <label class="email-label">留名帖</label>
             <input
               v-model="email"
               type="email"
-              placeholder="请输入邮箱"
+              placeholder="主公请留下大名..."
               @keyup.enter="handleEmailLogin"
               class="email-input"
             />
@@ -34,14 +35,14 @@
               :disabled="!validateEmail()"
             >
               <span class="btn-icon">🔐</span>
-              登录咨询
+              拜帖入内
             </button>
-            <p class="login-hint">登录用户每日可询 {{ userLimit }} 次</p>
+            <p class="login-hint">登录后每日可询 {{ userLimit }} 策</p>
           </div>
         </div>
       </div>
 
-      <p class="login-footer">卧龙在此，恭候多时</p>
+      <p class="login-footer">卧龙先生在此，静候君来</p>
     </div>
   </div>
 </template>
@@ -104,7 +105,7 @@ const handleEmailLogin = () => {
   border-radius: 16px;
   width: 90%;
   max-width: 420px;
-  padding: 32px;
+  padding: 36px 32px;
   animation: fadeIn 0.3s ease;
 }
 
@@ -121,7 +122,12 @@ const handleEmailLogin = () => {
 
 .login-header {
   text-align: center;
-  margin-bottom: 28px;
+  margin-bottom: 32px;
+}
+
+.login-icon {
+  font-size: 64px;
+  margin-bottom: 16px;
 }
 
 .login-header h3 {
@@ -148,7 +154,7 @@ const handleEmailLogin = () => {
 .btn-guest,
 .btn-login {
   width: 100%;
-  padding: 14px 20px;
+  padding: 16px 20px;
   border-radius: 10px;
   font-size: 16px;
   cursor: pointer;
@@ -189,11 +195,16 @@ const handleEmailLogin = () => {
 }
 
 .btn-icon {
-  font-size: 22px;
+  font-size: 24px;
+}
+
+.btn-main {
+  font-size: 16px;
+  font-weight: 500;
 }
 
 .btn-info {
-  font-size: 12px;
+  font-size: 13px;
   opacity: 0.8;
 }
 
@@ -223,13 +234,14 @@ const handleEmailLogin = () => {
 .email-label {
   color: #94a3b8;
   font-size: 14px;
+  text-align: left;
 }
 
 .email-input {
   width: 100%;
-  padding: 12px 16px;
+  padding: 14px 20px;
   border: 2px solid #283447;
-  border-radius: 8px;
+  border-radius: 10px;
   background-color: #1e293b;
   color: #e2e8f0;
   font-size: 15px;
@@ -240,17 +252,20 @@ const handleEmailLogin = () => {
 
 .email-input:focus {
   border-color: #4a6b5a;
+  box-shadow: 0 0 0 3px rgba(61, 90, 76, 0.2);
 }
 
 .login-hint {
   color: #64748b;
-  font-size: 12px;
+  font-size: 13px;
   text-align: center;
+  margin-top: 8px;
 }
 
 .login-footer {
   color: #64748b;
   font-size: 12px;
   text-align: center;
+  margin-top: 24px;
 }
 </style>

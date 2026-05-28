@@ -158,3 +158,34 @@ export const getQuotaConfig = async () => {
     }
   }
 }
+
+export const verifyInviteCode = async (code) => {
+  try {
+    const response = await fetch(API_BASE + '/verify-invite', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({ code })
+    })
+    return await response.json()
+  } catch (error) {
+    console.error('验证邀请码失败:', error)
+    return {
+      success: false,
+      message: '网络不佳，请稍后重试'
+    }
+  }
+}
+
+export const getInviteRequired = async () => {
+  try {
+    const response = await fetch(API_BASE + '/invite-required')
+    return await response.json()
+  } catch (error) {
+    console.error('获取邀请码配置失败:', error)
+    return {
+      required: false
+    }
+  }
+}

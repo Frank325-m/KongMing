@@ -53,6 +53,12 @@
       :show="showQuotaExceededModal"
       @close="showQuotaExceededModal = false"
     />
+
+    <InviteModal
+      :show="showInviteModal"
+      @success="handleInviteSuccess"
+      @close="closeInviteModal"
+    />
   </div>
 </template>
 
@@ -64,13 +70,16 @@ import DeleteDialog from './components/DeleteDialog.vue'
 import WisdomBag from './components/WisdomBag.vue'
 import LoginModal from './components/LoginModal.vue'
 import QuotaExceededModal from './components/QuotaExceededModal.vue'
+import InviteModal from './components/InviteModal.vue'
 import {
   createNewSession as apiCreateSession,
   fetchSessions as apiFetchSessions,
   fetchSession as apiFetchSession,
   deleteSession as apiDeleteSession,
   restoreSession as apiRestoreSession,
-  sendChatRequest
+  sendChatRequest,
+  getQuotaConfig as fetchQuotaConfig,
+  getInviteRequired
 } from './services/api'
 import {
   getUserData,
@@ -83,7 +92,6 @@ import {
   getQuotaConfig,
   loadQuotaConfig
 } from './utils/quota'
-import { getQuotaConfig as fetchQuotaConfig } from './services/api'
 
 const messages = ref([
   { role: 'ai', content: '主公，亮已就位，天下局势、商业布局、兴业之策，皆可垂询。' }
@@ -98,6 +106,7 @@ const deleteDialogTitle = ref('')
 const showWisdomBag = ref(false)
 const showLoginModal = ref(false)
 const showQuotaExceededModal = ref(false)
+const showInviteModal = ref(false)
 const wisdomBagRef = ref(null)
 const userData = ref(getUserData())
 const quotaConfig = ref({
@@ -105,8 +114,11 @@ const quotaConfig = ref({
   user: { dailyLimit: 30, displayName: '登录用户' }
 })
 const isQuotaConfigLoaded = ref(false)
+const isInviteRequired = ref(false)
+const isInviteVerified = ref(false)
 
 const STORAGE_KEY_PREFIX = 'kongming-data'
+const INVITE_VERIFIED_KEY = 'kongming-invite-verified'
 
 // 计算属性 - 直接从 quotaConfig 获取值
 const guestLimit = computed(() => {
@@ -143,7 +155,6 @@ const currentSessionTitle = computed(() => {
 })
 
 const remainingQuota = computed(() => {
-  // 使用当前的 quotaConfig 来计算
   const userQuota = quotaConfig.value[userData.value.userType]?.dailyLimit || 5
   return Math.max(0, userQuota - userData.value.todayCount)
 })
@@ -190,7 +201,6 @@ const restoreAllData = () => {
       }
       console.log('📂 数据已从', storageKey, '恢复')
     } else {
-      // 没有保存的数据，重置为默认
       sessions.value = []
       sessionId.value = null
       messages.value = [
@@ -303,7 +313,6 @@ const executeDelete = async () => {
 const handleSendMessage = async (text) => {
   if (!text || loading.value) return
   
-  // 检查配额
   if (checkQuotaExceeded(userData.value)) {
     showQuotaExceededModal.value = true
     return
@@ -313,7 +322,6 @@ const handleSendMessage = async (text) => {
   loading.value = true
   messages.value.push({ role: 'ai', content: '' })
   
-  // 使用一次配额
   userData.value = useOneQuota(userData.value)
 
   sendChatRequest(
@@ -374,7 +382,6 @@ const restoreBackendSession = async () => {
 const openWisdomBag = () => {
   console.log('📜 openWisdomBag called')
   showWisdomBag.value = true
-  // 打开时刷新锦囊数据，确保使用正确的用户存储
   setTimeout(() => {
     if (wisdomBagRef.value && wisdomBagRef.value.refreshUserData) {
       wisdomBagRef.value.refreshUserData()
@@ -421,7 +428,6 @@ const handleLogin = (loginData) => {
   
   showLoginModal.value = false
   
-  // 登录后切换到对应账号的数据
   console.log('🔐 切换到用户:', userData.value.userType, userData.value.email)
   restoreAllData()
 }
@@ -431,21 +437,19 @@ const closeLoginModal = () => {
 }
 
 const handleLogout = () => {
-  console.log('👋 退出登录')
+  console.log('👋 辞别离去')
   userData.value = apiLogout()
   showLoginModal.value = true
-  // 切换到访客数据
   restoreAllData()
 }
 
-// 从后端加载配额配置的函数
+// 从后端获取配额配置并更新响应式状态
 const loadQuotaConfigFromBackend = async () => {
   try {
     console.log('📡 从后端加载配额配置...')
     const apiConfig = await fetchQuotaConfig()
     console.log('📡 后端返回的配额配置:', apiConfig)
     
-    // 更新 quotaConfig 对象，触发响应式
     if (apiConfig) {
       quotaConfig.value = {
         guest: { dailyLimit: apiConfig.guest_daily_limit || 5, displayName: '访客' },
@@ -460,19 +464,70 @@ const loadQuotaConfigFromBackend = async () => {
   }
 }
 
+// 检查后端是否启用邀请码验证
+const loadInviteConfig = async () => {
+  try {
+    console.log('📡 检查邀请码配置...')
+    const result = await getInviteRequired()
+    isInviteRequired.value = result.required
+    console.log('✅ 邀请码配置:', isInviteRequired.value ? '需要' : '不需要')
+  } catch (error) {
+    console.error('检查邀请码配置失败:', error)
+    isInviteRequired.value = false
+  }
+}
+
+// 读取本地存储的邀请码验证状态
+const checkInviteVerified = () => {
+  try {
+    const verified = localStorage.getItem(INVITE_VERIFIED_KEY)
+    isInviteVerified.value = verified === 'true'
+    console.log('✅ 邀请码状态:', isInviteVerified.value ? '已验证' : '未验证')
+  } catch (error) {
+    console.error('检查邀请码状态失败:', error)
+    isInviteVerified.value = false
+  }
+}
+
+// 邀请码验证成功后的处理流程
+const handleInviteSuccess = () => {
+  console.log('✅ 邀请码验证成功')
+  localStorage.setItem(INVITE_VERIFIED_KEY, 'true')
+  isInviteVerified.value = true
+  showInviteModal.value = false
+  
+  const savedData = localStorage.getItem(getStorageKey())
+  if (!savedData && !userData.value.email && userData.value.userType === 'guest') {
+    console.log('💡 新用户，显示登录弹窗')
+    showLoginModal.value = true
+  }
+}
+
+const closeInviteModal = () => {
+  showInviteModal.value = false
+}
+
+// 应用启动初始化流程
 onMounted(async () => {
   showDeleteDialog.value = false
   deleteSessionId.value = ''
   deleteDialogTitle.value = ''
 
-  // 先从后端加载配额配置
+  // 先加载配置，再检查准入
   await loadQuotaConfigFromBackend()
+  await loadInviteConfig()
+  checkInviteVerified()
 
-  // 检查是否需要登录（只在第一次使用时显示）
-  const savedData = localStorage.getItem(getStorageKey())
-  if (!savedData && !userData.value.email && userData.value.userType === 'guest') {
-    console.log('💡 新用户，显示登录弹窗')
-    showLoginModal.value = true
+  // 根据配置决定是否需要邀请码或直接登录
+  if (isInviteRequired.value && !isInviteVerified.value) {
+    console.log('💡 需要邀请码验证')
+    showInviteModal.value = true
+  } else {
+    const savedData = localStorage.getItem(getStorageKey())
+    if (!savedData && !userData.value.email && userData.value.userType === 'guest') {
+      console.log('💡 新用户，显示登录弹窗')
+      showLoginModal.value = true
+    }
   }
 
   restoreAllData()

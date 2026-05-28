@@ -4,28 +4,34 @@
     <div class="wisdom-bag-panel" @click.stop>
       <div class="wisdom-bag-header">
         <h3 class="wisdom-bag-title">
-          <span class="wisdom-bag-icon">📜</span> 孔明锦囊
-          <span v-if="wisdomList.length > 0" class="wisdom-count">({{ wisdomList.length }})</span>
+          <span class="wisdom-bag-icon">📜</span>
+          孔明锦囊
+          <span v-if="wisdomList.length > 0" class="wisdom-count"> ({{ wisdomList.length }})</span>
         </h3>
-        <button class="wisdom-bag-close" @click="$emit('close')">×</button>
+        <button class="wisdom-bag-close" @click="$emit('close')">
+          <span class="close-icon">×</span>
+        </button>
       </div>
 
       <div class="wisdom-bag-content">
         <div v-if="wisdomList.length === 0" class="wisdom-bag-empty">
           <div class="empty-icon">🪶</div>
-          <div class="empty-text">主公，暂无锦囊妙计</div>
-          <div class="empty-hint">收藏精彩回答，收入锦囊</div>
+          <div class="empty-text">卷宗之中尚无妙计</div>
+          <div class="empty-hint">多问几策，精彩回答可收入囊中</div>
         </div>
 
         <div v-else class="wisdom-bag-list">
           <div v-for="item in wisdomList" :key="item.id" class="wisdom-bag-item">
             <div class="wisdom-bag-item-header">
-              <div class="wisdom-bag-item-title">{{ item.title }}</div>
-              <button class="wisdom-bag-item-delete" @click="deleteWisdom(item.id)">×</button>
+              <div class="wisdom-bag-item-title">{{ item.title || '孔明妙计' }}</div>
+              <button class="wisdom-bag-item-delete" @click="deleteWisdom(item.id)">
+                移出卷宗
+              </button>
             </div>
             <div class="wisdom-bag-item-content">{{ item.content }}</div>
             <div class="wisdom-bag-item-time">
-              收入锦囊于：{{ formatTime(item.createTime) }}
+              <span class="time-label">收录于</span>
+              {{ formatTime(item.createTime) }}
             </div>
           </div>
         </div>
@@ -35,7 +41,7 @@
 </template>
 
 <script setup>
-import { ref, onMounted, watch, computed } from 'vue'
+import { ref, onMounted } from 'vue'
 import { getUserData } from '../utils/quota'
 
 const props = defineProps({})
@@ -47,6 +53,7 @@ const wisdomHashSet = ref(new Set())
 
 const STORAGE_KEY_PREFIX = 'kongming-wisdom-bag'
 
+// 获取与当前用户身份绑定的存储键，实现访客与用户数据隔离
 const getStorageKey = () => {
   if (userData.value.userType === 'user' && userData.value.email) {
     return `${STORAGE_KEY_PREFIX}-${userData.value.email}`
@@ -54,6 +61,7 @@ const getStorageKey = () => {
   return STORAGE_KEY_PREFIX
 }
 
+// 生成字符串的简单hash值，用于快速查重
 const hashCode = (str) => {
   let hash = 0
   if (str.length === 0) return hash
@@ -65,6 +73,7 @@ const hashCode = (str) => {
   return hash.toString()
 }
 
+// 建立hash值Set，用于O(1)时间复杂度判断锦囊是否存在
 const buildHashSet = () => {
   wisdomHashSet.value = new Set(wisdomList.value.map(item => item.contentHash))
   console.log('📚 HashSet built with', wisdomHashSet.value.size, 'items')
@@ -106,19 +115,20 @@ const checkWisdomExists = (content) => {
   return wisdomHashSet.value.has(contentHash)
 }
 
+// 新增锦囊到列表（带查重）
 const addWisdom = (title, content) => {
   console.log('📚 Adding wisdom to list - title:', title, 'content length:', content.length)
   
   const contentHash = hashCode(content)
   if (wisdomHashSet.value.has(contentHash)) {
     console.log('📚 Wisdom already exists (hash match), skipping addition')
-    alert('此锦囊妙计已在囊中！')
+    alert('此计已在囊中！')
     return false
   }
   
   const newWisdom = {
     id: Date.now().toString(),
-    title,
+    title: title || '孔明妙计',
     content,
     contentHash: contentHash,
     createTime: new Date().toISOString()
@@ -150,11 +160,11 @@ const formatTime = (timeStr) => {
   if (diff < 60000) {
     return '刚刚'
   } else if (diff < 3600000) {
-    return Math.floor(diff / 60000) + '分钟前'
+    return Math.floor(diff / 60000) + '片刻前'
   } else if (diff < 86400000) {
-    return Math.floor(diff / 3600000) + '小时前'
+    return Math.floor(diff / 3600000) + '时辰前'
   } else if (diff < 604800000) {
-    return Math.floor(diff / 86400000) + '天前'
+    return Math.floor(diff / 86400000) + '日前'
   } else {
     return date.toLocaleString('zh-CN', {
       year: 'numeric',
@@ -166,7 +176,6 @@ const formatTime = (timeStr) => {
   }
 }
 
-// 监听用户变化，切换锦囊数据
 const refreshUserData = () => {
   userData.value = getUserData()
   loadWisdomList()
@@ -190,14 +199,15 @@ defineExpose({
   right: 0;
   bottom: 0;
   left: 0;
-  background-color: rgba(0, 0, 0, 0.5);
+  background-color: rgba(0, 0, 0, 0.7);
   display: flex;
   justify-content: flex-end;
   z-index: 1000;
 }
 
 .wisdom-bag-panel {
-  width: 400px;
+  width: 420px;
+  max-width: 100%;
   height: 100%;
   background: linear-gradient(180deg, #1a2744, #0f172a);
   border-left: 2px solid #d4b878;
@@ -219,7 +229,7 @@ defineExpose({
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding: 20px;
+  padding: 20px 24px;
   border-bottom: 1px solid #283447;
   background-color: #121b2b;
 }
@@ -246,10 +256,10 @@ defineExpose({
 .wisdom-bag-close {
   width: 36px;
   height: 36px;
-  border: 1px solid #475569;
+  border: 1px solid #334155;
   background: transparent;
   color: #94a3b8;
-  font-size: 20px;
+  font-size: 24px;
   border-radius: 6px;
   cursor: pointer;
   display: flex;
@@ -266,7 +276,7 @@ defineExpose({
 .wisdom-bag-content {
   flex: 1;
   overflow-y: auto;
-  padding: 20px;
+  padding: 24px;
   scrollbar-width: thin;
   scrollbar-color: #475569 transparent;
 }
@@ -295,8 +305,9 @@ defineExpose({
 }
 
 .empty-icon {
-  font-size: 64px;
-  opacity: 0.5;
+  font-size: 72px;
+  opacity: 0.6;
+  margin-bottom: 8px;
 }
 
 .empty-text {
@@ -307,6 +318,8 @@ defineExpose({
 .empty-hint {
   font-size: 14px;
   color: #475569;
+  text-align: center;
+  line-height: 1.6;
 }
 
 .wisdom-bag-list {
@@ -319,7 +332,7 @@ defineExpose({
   background-color: #121b2b;
   border: 1px solid #283447;
   border-radius: 12px;
-  padding: 16px;
+  padding: 18px;
   transition: all 0.3s ease;
 }
 
@@ -337,31 +350,28 @@ defineExpose({
 }
 
 .wisdom-bag-item-title {
-  font-size: 14px;
+  font-size: 15px;
   font-weight: 600;
   color: #e6c88c;
-  max-width: 280px;
+  max-width: 70%;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
 .wisdom-bag-item-delete {
-  width: 28px;
-  height: 28px;
-  border: none;
+  padding: 6px 14px;
+  border: 1px solid rgba(239, 68, 68, 0.3);
   background: transparent;
   color: #94a3b8;
-  font-size: 16px;
-  border-radius: 4px;
+  font-size: 12px;
+  border-radius: 6px;
   cursor: pointer;
-  display: flex;
-  align-items: center;
-  justify-content: center;
   transition: all 0.3s ease;
 }
 
 .wisdom-bag-item-delete:hover {
+  border-color: #ef4444;
   color: #ef4444;
   background-color: rgba(239, 68, 68, 0.1);
 }
@@ -385,7 +395,11 @@ defineExpose({
   font-size: 12px;
   display: flex;
   align-items: center;
-  gap: 4px;
+  gap: 6px;
+}
+
+.time-label {
+  color: #475569;
 }
 
 @media (max-width: 768px) {

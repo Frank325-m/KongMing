@@ -3,12 +3,12 @@
   <div class="sidebar" :class="{ collapsed: sidebarCollapsed }">
     <div class="sidebar-header">
       <h2>🪶孔明军师</h2>
-      <button class="new-chat-btn" @click="$emit('create-session')">+ 新对话</button>
+      <button class="new-chat-btn" @click="$emit('create-session')">+ 另启新论</button>
     </div>
 
     <div class="session-list">
       <div v-if="sessions.length === 0" class="empty-sessions">
-        暂无会话，点击“新对话”开始
+        暂无对话，点击“另启新论”开始
       </div>
 
       <div
@@ -28,7 +28,7 @@
         <button
           class="delete-session-btn"
           @click.stop="handleDelete(session.id, session.title)"
-          title="删除会话"
+          title="移出卷宗"
         >
           🗑️
         </button>
@@ -57,9 +57,9 @@ const formatDate = (dateStr) => {
   const now = new Date()
   const diff = now - date
 
-  if (diff < 86400000) { // 24小时内
+  if (diff < 86400000) {
     return date.toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' })
-  } else if (diff < 604800000) { // 7天内
+  } else if (diff < 604800000) {
     return date.toLocaleDateString('zh-CN', { weekday: 'short' })
   } else {
     return date.toLocaleDateString('zh-CN', { month: 'short', day: 'numeric' })
@@ -102,9 +102,9 @@ const handleDelete = (id, title) => {
 .new-chat-btn {
   width: 100%;
   padding: 12px 20px;
-  border: 1px solid #3b82f6;
+  border: 1px solid #d4b878;
   background: transparent;
-  color: #3b82f6;
+  color: #d4b878;
   border-radius: 8px;
   cursor: pointer;
   font-size: 14px;
@@ -112,15 +112,15 @@ const handleDelete = (id, title) => {
 }
 
 .new-chat-btn:hover {
-  background-color: #3b82f6;
-  color: white;
+  background: linear-gradient(135deg, rgba(212, 184, 120, 0.2), transparent);
+  box-shadow: 0 4px 12px rgba(212, 184, 120, 0.2);
+  transform: translateY(-2px);
 }
 
 .session-list {
   flex: 1;
   overflow-y: auto;
   padding: 10px;
-  /* 自定义滚动条 - WebKit 浏览器 */
   scrollbar-width: thin;
   scrollbar-color: transparent transparent;
 }

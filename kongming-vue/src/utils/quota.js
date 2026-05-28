@@ -1,5 +1,5 @@
 
-// 配额配置 - 用 let 以便更新
+// 配额配置 - 用 let 以便从后端动态更新
 let QUOTA_CONFIG = {
   guest: {
     dailyLimit: 5,
@@ -50,7 +50,7 @@ export const getUserData = () => {
     }
     const data = JSON.parse(saved)
     
-    // 检查是否是新的一天
+    // 每日0点自动重置配额计数
     const today = new Date().toDateString()
     if (data.lastLoginDate !== today) {
       return {
@@ -88,10 +88,10 @@ export const getRemainingQuota = (userType, todayCount) => {
   return Math.max(0, getTodayQuota(userType) - todayCount)
 }
 
+// 消耗一次配额，每日自动重置
 export const useOneQuota = (userData) => {
   const today = new Date().toDateString()
   
-  // 如果是新的一天，重置计数
   if (userData.lastLoginDate !== today) {
     userData = {
       ...userData,
@@ -109,6 +109,7 @@ export const useOneQuota = (userData) => {
   return userData
 }
 
+// 检查当前配额是否已用尽
 export const checkQuotaExceeded = (userData) => {
   const today = new Date().toDateString()
   let currentData = userData

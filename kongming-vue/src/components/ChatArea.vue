@@ -25,10 +25,10 @@
         <span class="quota-total">/ {{ todayLimit }}</span>
       </div>
       <button class="logout-btn" v-if="userType === 'user'" @click="$emit('logout')">
-        退出
+        辞别离去
       </button>
       <button class="login-btn" v-else @click="$emit('open-login-modal')">
-        登录
+        登堂入室
       </button>
     </div>
 
@@ -40,9 +40,9 @@
             v-if="msg.content && !loading"
             class="collect-btn"
             @click="collectWisdom(msg.content)"
-            title="收入锦囊"
+            title="收录锦囊"
           >
-            💾 收入锦囊
+            💾 收录锦囊
           </button>
         </div>
         <div class="bubble" v-else>
@@ -66,7 +66,7 @@
         :disabled="loading"
       />
       <button @click="handleSend" :class="{ disabled: loading }">
-        献策问策
+        呈上问策
       </button>
     </div>
   </div>
@@ -290,9 +290,9 @@ watch(
 }
 
 .logout-btn:hover {
-  border-color: #d4b878;
-  color: #d4b878;
-  background: rgba(212, 184, 120, 0.1);
+  border-color: #ef4444;
+  color: #ef4444;
+  background: rgba(239, 68, 68, 0.1);
 }
 
 .login-btn {
@@ -450,18 +450,19 @@ watch(
 .input-bar input {
   flex: 1;
   padding: 14px 20px;
-  border: 1px solid #334155;
+  border: 2px solid #334155;
   background-color: #1e293b;
   color: #e2e8f0;
-  border-radius: 8px;
+  border-radius: 10px;
   font-size: 15px;
   outline: none;
   transition: all 0.3s ease;
 }
 
 .input-bar input:focus {
-  border-color: #4a6b5a;
+  border-color: #d4b878;
   background-color: #27344a;
+  box-shadow: 0 0 0 3px rgba(212, 184, 120, 0.15);
 }
 
 .input-bar input:disabled {
@@ -471,10 +472,10 @@ watch(
 
 .input-bar button {
   padding: 14px 28px;
-  border: none;
+  border: 2px solid #d4b878;
   background: linear-gradient(135deg, #3d5a4c, #2a4036);
   color: #e6c88c;
-  border-radius: 8px;
+  border-radius: 10px;
   font-size: 15px;
   cursor: pointer;
   transition: all 0.3s ease;
