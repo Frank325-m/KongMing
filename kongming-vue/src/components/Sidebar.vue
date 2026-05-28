@@ -2,7 +2,7 @@
 <template>
   <div class="sidebar" :class="{ collapsed: sidebarCollapsed }">
     <div class="sidebar-header">
-      <h2>孔明军师</h2>
+      <h2>🪶孔明军师</h2>
       <button class="new-chat-btn" @click="$emit('create-session')">+ 新对话</button>
     </div>
 

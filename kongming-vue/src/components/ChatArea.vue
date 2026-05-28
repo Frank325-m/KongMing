@@ -4,11 +4,27 @@
     <div class="chat-header">
       <button class="menu-toggle" @click="$emit('toggle-sidebar')">☰</button>
       <span class="title">{{ currentSessionTitle || '孔明军师 - 专属谋断' }}</span>
+      <button class="wisdom-bag-toggle" @click="$emit('open-wisdom-bag')">
+        <span class="wisdom-icon">📜</span> 锦囊
+      </button>
     </div>
 
     <div class="chat-box" ref="chatBox">
       <div v-for="(msg, idx) in messages" :key="idx" class="msg" :class="msg.role">
-        <div class="bubble">{{ msg.content }}</div>
+        <div class="bubble" v-if="msg.role === 'ai'">
+          {{ msg.content }}
+          <button
+            v-if="msg.content && !loading"
+            class="collect-btn"
+            @click="collectWisdom(msg.content)"
+            title="收入锦囊"
+          >
+            💾 收入锦囊
+          </button>
+        </div>
+        <div class="bubble" v-else>
+          {{ msg.content }}
+        </div>
       </div>
 
       <div v-if="loading" class="msg ai">
@@ -34,7 +50,7 @@
 </template>
 
 <script setup>
-import { ref, watch, nextTick } from 'vue'
+import { ref, watch, nextTick, computed } from 'vue'
 
 const props = defineProps({
   messages: { type: Array, required: true },
@@ -43,16 +59,27 @@ const props = defineProps({
   currentSessionTitle: { type: String, default: '' }
 })
 
-const emit = defineEmits(['send-message', 'toggle-sidebar'])
+const emit = defineEmits(['send-message', 'toggle-sidebar', 'open-wisdom-bag', 'collect-wisdom'])
 
 const chatBox = ref(null)
 const inputText = ref('')
+
+const currentQuestion = computed(() => {
+  const userMessages = props.messages.filter(m => m.role === 'user')
+  return userMessages.length > 0 ? userMessages[userMessages.length - 1].content : ''
+})
 
 const handleSend = () => {
   if (inputText.value.trim()) {
     emit('send-message', inputText.value.trim())
     inputText.value = ''
   }
+}
+
+const collectWisdom = (content) => {
+  console.log('🤖 collectWisdom called, title:', currentQuestion.value, 'content length:', content.length)
+  const title = currentQuestion.value || '孔明妙计'
+  emit('collect-wisdom', title, content)
 }
 
 const scrollToBottom = () => {
@@ -74,13 +101,11 @@ const scrollToBottom = () => {
   }
 }
 
-// 监听消息长度变化时滚动
 watch(() => props.messages.length, async () => {
   await nextTick()
   scrollToBottom()
 })
 
-// 监听最后一条消息内容变化时滚动
 watch(
   () => props.messages[props.messages.length - 1]?.content,
   async () => {
@@ -126,6 +151,30 @@ watch(
   letter-spacing: 1px;
 }
 
+.wisdom-bag-toggle {
+  padding: 8px 16px;
+  border: 1px solid #d4b878;
+  background: linear-gradient(135deg, rgba(212, 184, 120, 0.1), transparent);
+  color: #d4b878;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 14px;
+  transition: all 0.3s ease;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.wisdom-bag-toggle:hover {
+  background: linear-gradient(135deg, rgba(212, 184, 120, 0.2), transparent);
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(212, 184, 120, 0.3);
+}
+
+.wisdom-icon {
+  font-size: 16px;
+}
+
 .chat-box {
   flex: 1;
   padding: 24px;
@@ -133,7 +182,6 @@ watch(
   display: flex;
   flex-direction: column;
   gap: 20px;
-  /* 自定义滚动条 - WebKit 浏览器 */
   scrollbar-width: thin;
   scrollbar-color: transparent transparent;
 }
@@ -182,6 +230,11 @@ watch(
   font-size: 15px;
   box-sizing: border-box;
   text-align: left;
+  position: relative;
+}
+
+.msg.ai .bubble {
+  padding-bottom: 40px;
 }
 
 .user .bubble {
@@ -195,6 +248,39 @@ watch(
   color: #e6c88c;
   border: 1px solid #283447;
   border-bottom-left-radius: 4px;
+}
+
+.collect-btn {
+  position: absolute;
+  bottom: 8px;
+  right: 12px;
+  padding: 4px 10px;
+  border: 1px solid rgba(212, 184, 120, 0.3);
+  background: rgba(212, 184, 120, 0.1);
+  color: #d4b878;
+  border-radius: 4px;
+  font-size: 12px;
+  cursor: pointer;
+  opacity: 0;
+  transition: all 0.3s ease;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  z-index: 10;
+}
+
+.msg.ai:hover .collect-btn {
+  opacity: 1;
+}
+
+.collect-btn:hover {
+  background: rgba(212, 184, 120, 0.2);
+  border-color: #d4b878;
+  transform: translateY(-1px);
+}
+
+.collect-btn:active {
+  transform: scale(0.95);
 }
 
 .loading-wrap {

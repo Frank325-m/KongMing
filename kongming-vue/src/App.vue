@@ -18,6 +18,8 @@
       :current-session-title="currentSessionTitle"
       @send-message="sendMessage"
       @toggle-sidebar="toggleSidebar"
+      @open-wisdom-bag="openWisdomBag"
+      @collect-wisdom="collectWisdom"
     />
 
     <DeleteDialog
@@ -25,6 +27,12 @@
       :title="deleteDialogTitle"
       @cancel="cancelDelete"
       @confirm="executeDelete"
+    />
+
+    <WisdomBag
+      v-show="showWisdomBag"
+      ref="wisdomBagRef"
+      @close="closeWisdomBag"
     />
   </div>
 </template>
@@ -34,6 +42,7 @@ import { ref, onMounted, computed } from 'vue'
 import Sidebar from './components/Sidebar.vue'
 import ChatArea from './components/ChatArea.vue'
 import DeleteDialog from './components/DeleteDialog.vue'
+import WisdomBag from './components/WisdomBag.vue'
 import {
   createNewSession as apiCreateSession,
   fetchSessions as apiFetchSessions,
@@ -43,7 +52,6 @@ import {
   sendChatRequest
 } from './services/api'
 
-// 直接在 App 中管理所有状态，更简单稳定
 const messages = ref([
   { role: 'ai', content: '主公，亮已就位，天下局势、商业布局、兴业之策，皆可垂询。' }
 ])
@@ -51,11 +59,11 @@ const loading = ref(false)
 const sessionId = ref(null)
 const sessions = ref([])
 const sidebarCollapsed = ref(false)
-
-// 删除对话框状态
 const showDeleteDialog = ref(false)
 const deleteSessionId = ref('')
 const deleteDialogTitle = ref('')
+const showWisdomBag = ref(false)
+const wisdomBagRef = ref(null)
 
 const STORAGE_KEY = 'kongming-data'
 
@@ -85,15 +93,12 @@ const restoreAllData = () => {
     const savedData = localStorage.getItem(STORAGE_KEY)
     if (savedData) {
       const data = JSON.parse(savedData)
-
       if (data.sessions) {
         sessions.value = data.sessions
       }
-
       if (data.currentSessionId) {
         sessionId.value = data.currentSessionId
       }
-
       if (data.messages && data.messages[sessionId.value]) {
         messages.value = data.messages[sessionId.value]
       }
@@ -262,11 +267,41 @@ const restoreBackendSession = async () => {
   }
 }
 
+const openWisdomBag = () => {
+  console.log('📜 openWisdomBag called')
+  showWisdomBag.value = true
+}
+
+const closeWisdomBag = () => {
+  console.log('📜 closeWisdomBag called')
+  showWisdomBag.value = false
+}
+
+const collectWisdom = (title, content) => {
+  console.log('📥 App.vue collectWisdom called, title:', title, 'content length:', content.length)
+  
+  if (wisdomBagRef.value) {
+    console.log('📥 Using wisdomBagRef to add wisdom')
+    wisdomBagRef.value.addWisdom(title, content)
+    openWisdomBag()
+  } else {
+    console.log('📥 wisdomBagRef not ready, opening panel first...')
+    openWisdomBag()
+    
+    setTimeout(() => {
+      if (wisdomBagRef.value) {
+        console.log('📥 Now adding wisdom via delayed call')
+        wisdomBagRef.value.addWisdom(title, content)
+      }
+    }, 100)
+  }
+}
+
 onMounted(async () => {
   showDeleteDialog.value = false
   deleteSessionId.value = ''
   deleteDialogTitle.value = ''
-  
+
   restoreAllData()
   await refreshSessionList()
   await restoreBackendSession()
