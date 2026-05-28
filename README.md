@@ -1,99 +1,157 @@
-# KongMing 项目
+# 🪶 孔明军师
 
-这是一个全栈项目，包含前端和后端组件。
+专属谋断AI军师，基于三国诸葛亮人设，专注商业、战略、管理类问题。
 
-## 项目结构
+## 📦 项目结构
 
 ```
-kongming/
-├── .gitignore                    # 根目录通用忽略规则
-├── README.md                     # 项目说明文档
-├── kongming-backend/             # Python FastAPI 后端
-│   ├── .gitignore               # Python 特定忽略规则
-│   ├── main.py                  # 后端主程序
-│   └── venv/                    # Python 虚拟环境（已忽略）
-└── kongming-vue/                # Vue.js 前端
-    ├── .gitignore               # Vue/Node.js 特定忽略规则
-    ├── package.json             # 前端依赖配置
-    ├── src/                     # 前端源代码
-    └── public/                  # 静态资源
+KongMing/
+├── kongming-backend/    # 后端服务 (FastAPI + OpenAI)
+│   ├── main.py         # 核心业务逻辑
+│   ├── Dockerfile      # Docker构建配置
+│   ├── docker-compose.yml  # 后端独立部署
+│   ├── requirements.txt    # Python依赖
+│   ├── .env            # 环境变量（本地开发）
+│   └── .env.docker     # Docker环境变量
+│
+├── kongming-vue/       # 前端服务 (Vue3 + Vite)
+│   ├── src/
+│   │   ├── App.vue     # 主应用组件
+│   │   ├── main.js     # 入口文件
+│   │   └── assets/     # 静态资源
+│   ├── Dockerfile      # Docker构建配置
+│   ├── docker-compose.yml  # 前端独立部署
+│   ├── nginx.conf      # Nginx配置
+│   └── package.json    # Node依赖
+│
+├── docker-compose.yml  # 前后端统一部署
+└── DEPLOYMENT_GUIDE.md # 完整部署文档
 ```
 
-## .gitignore 配置说明
+## 🚀 快速开始
 
-### 根目录 (.gitignore)
-- 通用操作系统文件（.DS_Store, Thumbs.db等）
-- IDE配置文件（.vscode/, .idea/等）
-- 临时文件和日志
-- 环境变量文件（.env）
+### 方式1：Docker一键部署（推荐）
 
-### 后端 (kongming-backend/.gitignore)
-- Python编译文件（__pycache__/, *.pyc等）
-- 虚拟环境（venv/, .venv/等）
-- 构建输出（dist/, build/等）
-- 测试和覆盖率报告
-- 包管理文件（根据使用的工具）
+```bash
+# 1. 进入项目根目录
+cd d:\workspace\KongMing
 
-### 前端 (kongming-vue/.gitignore)
-- Node.js依赖（node_modules/）
-- 构建输出（dist/, .next/等）
-- 日志和缓存文件
-- 环境变量文件
-- IDE配置文件
+# 2. 启动前后端服务
+docker-compose up -d --build
 
-## 开发环境设置
+# 3. 访问应用
+# 前端: http://localhost:3000
+# 后端: http://localhost:8000
+```
 
-### 后端开发
-1. 进入后端目录：
-   ```bash
-   cd kongming-backend
-   ```
+### 方式2：本地开发
 
-2. 创建并激活虚拟环境：
-   ```bash
-   python -m venv venv
-   # Windows
-   .\venv\Scripts\activate
-   # macOS/Linux
-   source venv/bin/activate
-   ```
+#### 后端启动
+```bash
+cd kongming-backend
+pip install -r requirements.txt
+uvicorn main:app --reload --host localhost --port 8000
+```
 
-3. 安装依赖：
-   ```bash
-   pip install fastapi uvicorn openai python-dotenv
-   ```
+#### 前端启动
+```bash
+cd kongming-vue
+npm install
+npm run dev
+```
 
-4. 运行开发服务器：
-   ```bash
-   uvicorn main:app --reload --host localhost --port 8000
-   ```
+## ⚙️ 配置说明
 
-### 前端开发
-1. 进入前端目录：
-   ```bash
-   cd kongming-vue
-   ```
+### 环境变量配置
 
-2. 安装依赖：
-   ```bash
-   npm install
-   ```
+编辑根目录的 `docker-compose.yml` 或后端的 `.env.docker`：
 
-3. 运行开发服务器：
-   ```bash
-   npm run dev
-   ```
+```yaml
+environment:
+  - LLM_MODEL_NAME=qwen2.5:7b      # 模型名称
+  - LLM_API_KEY=ollama            # API密钥
+  - LLM_BASE_URL=http://host.docker.internal:11434/v1  # API地址
+  - TEMPERATURE=0.45              # 温度参数（创造性）
+  - TOP_P=0.7                     # Top-p参数（多样性）
+```
 
-## 注意事项
+### 使用本地Ollama
 
-1. **环境变量**：所有 `.env` 文件已被忽略，请创建 `.env.example` 文件作为模板
-2. **虚拟环境**：Python虚拟环境不应提交到版本控制
-3. **依赖管理**：确保提交 `requirements.txt`（后端）和 `package.json`（前端）
-4. **构建输出**：所有构建产物（如 `dist/`, `build/`）不应提交
+1. 确保Ollama正在运行
+2. 配置环境变量指向本地服务
+3. 拉取所需模型：`ollama pull qwen2.5:7b`
 
-## 版本控制最佳实践
+### 使用云端API
 
-1. 提交前运行相关测试
-2. 确保没有提交敏感信息（API密钥、密码等）
-3. 使用有意义的提交信息
-4. 定期更新依赖包
+修改环境变量为DeepSeek等云端服务配置。
+
+## 📝 常用命令
+
+### Docker命令
+```bash
+# 启动服务
+docker-compose up -d --build
+
+# 查看状态
+docker-compose ps
+
+# 查看日志
+docker-compose logs -f
+
+# 停止服务
+docker-compose down
+
+# 重启服务
+docker-compose restart
+```
+
+### 本地开发
+```bash
+# 后端开发
+cd kongming-backend
+uvicorn main:app --reload
+
+# 前端开发
+cd kongming-vue
+npm run dev
+```
+
+## 🎯 核心特性
+
+- **孔明人设**：专业的古代军师风格
+- **流式输出**：实时响应，体验流畅
+- **前后分离**：Vue3前端 + FastAPI后端
+- **Docker部署**：一键启动，开箱即用
+- **灵活配置**：支持本地Ollama或云端API
+- **战略分析**：上中下策分层作答
+
+## 📖 文档
+
+- **DEPLOYMENT_GUIDE.md** - 完整部署指南
+- **kongming-backend/README.md** - 后端文档
+- **kongming-vue/README.md** - 前端文档
+
+## 🔧 技术栈
+
+### 后端
+- FastAPI - Web框架
+- OpenAI SDK - LLM客户端
+- Python-dotenv - 环境变量管理
+
+### 前端
+- Vue3 - 前端框架
+- Vite - 构建工具
+- Axios - HTTP客户端
+- Nginx - Web服务器
+
+### 部署
+- Docker - 容器化
+- Docker Compose - 编排工具
+
+## 🤝 贡献
+
+欢迎提交Issue和Pull Request！
+
+## 📄 许可证
+
+MIT License

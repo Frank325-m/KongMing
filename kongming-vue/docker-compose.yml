@@ -1,0 +1,26 @@
+services:
+  kongming-vue:
+    build: .
+    container_name: kongming-vue
+    ports:
+      - "3000:80"
+    volumes:
+      - .:/app
+    restart: unless-stopped
+    depends_on:
+      - kongming-backend
+
+  kongming-backend:
+    build: ../kongming-backend
+    container_name: kongming-backend
+    ports:
+      - "8000:8000"
+    environment:
+      - LLM_MODEL_NAME=qwen2.5:7b
+      - LLM_API_KEY=ollama
+      - LLM_BASE_URL=http://host.docker.internal:11434/v1
+      - TEMPERATURE=0.45
+      - TOP_P=0.7
+    volumes:
+      - ../kongming-backend:/app
+    restart: unless-stopped

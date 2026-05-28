@@ -1,43 +1,24 @@
-from pyexpat import model
-
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import StreamingResponse
-from pydantic import BaseModel
 from openai import OpenAI
 from dotenv import load_dotenv
 import os
-import requests
-import json
 
 load_dotenv()
 
-# app = FastAPI(title="孔明AI军师(本地Ollama版)")
-app = FastAPI(title="孔明AI军师(线上版)")
+app = FastAPI(title="孔明AI军师")
 
 # 全局跨域配置 - 针对SSE优化
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # 明确指定前端地址
+    allow_origins=["*"],
     allow_credentials=True,
-    allow_methods=["*"],  # SSE需要GET和OPTIONS
+    allow_methods=["*"],
     allow_headers=["*"],
     expose_headers=["*"],  # 暴露所有头给前端
     max_age=86400  # 预检请求缓存时间
 )
-
-#前端请求格式
-class ChatRequest(BaseModel):
-    question: str
-
-# 孔明人格（固定）
-KONGMING_SYSTEM = """
-你是孔明，一位沉稳、智慧的军师。
-说话风格：古风、简洁、有谋略，自称“亮”，称呼用户为“主公”。
-回答必须精准、有策略、有逻辑。
-不说废话，不做无意义回答。
-只回答商业、产品、战略、管理、投资、增长相关问题。
-"""
 
 # ====================== 核心固化：孔明终极人格Prompt ======================
 KONGMING_FULL_PERSONA = """
@@ -77,19 +58,7 @@ TOP_P = float(os.getenv("TOP_P", "0.7"))
 def home():
     return {"message": "孔明后端已就位，恭候主公"}
 
-# 处理OPTIONS预检请求
-@app.options("/chat-stream")
-async def options_chat_stream():
-    from fastapi.responses import JSONResponse
-    response = JSONResponse(content={})
-    response.headers["Access-Control-Allow-Origin"] = "*"
-    response.headers["Access-Control-Allow-Methods"] = "GET, POST, OPTIONS"
-    response.headers["Access-Control-Allow-Headers"] = "*"
-    response.headers["Access-Control-Allow-Credentials"] = "true"
-    response.headers["Access-Control-Max-Age"] = "86400"  # 24小时
-    return response
-
-# 流式对话接口（新版核心）- 支持GET和POST方法
+# 流式对话接口（核心）- 支持GET和POST方法
 @app.get("/chat-stream")
 @app.post("/chat-stream")
 async def chat_stream(request: Request, question: str = None):
@@ -132,22 +101,3 @@ async def chat_stream(request: Request, question: str = None):
     }
 
     return StreamingResponse(stream_generator(), headers=headers)
-
-@app.post("/chat")
-def chat(req: ChatRequest):
-    # 组装人格对话请求
-    messages =  [
-        {"role": "system", "content": KONGMING_FULL_PERSONA},
-        {"role": "user", "content": req.question}
-    ]
-
-    try:
-        res = client.chat.completions.create(
-            model=MODEL_NAME,
-            messages=messages,
-            temperature=TEMP,
-            top_p=TOP_P,
-        )
-        return {"answer": res.choices[0].message.content}
-    except Exception as e:
-        return {"answer": "主公，本地推演服务暂时中断，请稍后再询。"}
