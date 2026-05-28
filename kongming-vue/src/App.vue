@@ -1,323 +1,296 @@
+
 <template>
   <div class="app-container">
-    <!-- 顶部标题栏 -->
-    <div class="header">
-      <span class="title-text">🪶 孔明军师｜专属谋断</span>
-    </div>
+    <Sidebar
+      :sessions="sessions"
+      :current-session-id="sessionId"
+      :sidebar-collapsed="sidebarCollapsed"
+      @create-session="createNewSession"
+      @switch-session="switchSession"
+      @delete-session="confirmDeleteSession"
+      @toggle-sidebar="toggleSidebar"
+    />
 
-    <!-- 聊天主体区域 -->
-    <div class="chat-box" ref="chatBox">
-      <div v-for="(msg, idx) in messages" :key="idx" class="msg" :class="msg.role">
-        <div class="bubble">{{ msg.content }}</div>
-      </div>
+    <ChatArea
+      :messages="messages"
+      :loading="loading"
+      :sidebar-collapsed="sidebarCollapsed"
+      :current-session-title="currentSessionTitle"
+      @send-message="sendMessage"
+      @toggle-sidebar="toggleSidebar"
+    />
 
-      <!-- 自定义羽扇加载动画 -->
-      <div v-if="loading" class="msg ai">
-        <div class="bubble loading-wrap">
-          <span class="fan-icon">🪶</span>
-          <span class="loading-text">孔明推演局势中...</span>
-        </div>
-      </div>
-    </div>
-
-    <!-- 底部输入栏 -->
-    <div class="input-bar">
-      <input
-        v-model="inputText"
-        @keyup.enter="sendMessage"
-        placeholder="请主公吩咐，亮即刻推演..."
-        :disabled="loading"
-      />
-      <button @click="sendMessage" :class="{disabled: loading}">献策问策</button>
-    </div>
+    <DeleteDialog
+      :show="showDeleteDialog"
+      :title="deleteDialogTitle"
+      @cancel="cancelDelete"
+      @confirm="executeDelete"
+    />
   </div>
 </template>
 
 <script setup>
-import { ref, nextTick, watch } from 'vue'
-import axios from 'axios'
+import { ref, onMounted, computed } from 'vue'
+import Sidebar from './components/Sidebar.vue'
+import ChatArea from './components/ChatArea.vue'
+import DeleteDialog from './components/DeleteDialog.vue'
+import {
+  createNewSession as apiCreateSession,
+  fetchSessions as apiFetchSessions,
+  fetchSession as apiFetchSession,
+  deleteSession as apiDeleteSession,
+  restoreSession as apiRestoreSession,
+  sendChatRequest
+} from './services/api'
 
-const inputText = ref('')
+// 直接在 App 中管理所有状态，更简单稳定
 const messages = ref([
   { role: 'ai', content: '主公，亮已就位，天下局势、商业布局、兴业之策，皆可垂询。' }
 ])
 const loading = ref(false)
-const chatBox = ref(null)
+const sessionId = ref(null)
+const sessions = ref([])
+const sidebarCollapsed = ref(false)
 
-// 流式拼接文本
-const streamAnswer = ref('')
+// 删除对话框状态
+const showDeleteDialog = ref(false)
+const deleteSessionId = ref('')
+const deleteDialogTitle = ref('')
 
-// 发送消息主逻辑
-const sendMessage = async () => {
-  const text = inputText.value.trim()
+const STORAGE_KEY = 'kongming-data'
+
+const currentSessionTitle = computed(() => {
+  const session = sessions.value.find(s => s.id === sessionId.value)
+  return session ? session.title : ''
+})
+
+const saveAllData = () => {
+  try {
+    const data = {
+      currentSessionId: sessionId.value,
+      sessions: sessions.value,
+      messages: {}
+    }
+    if (sessionId.value) {
+      data.messages[sessionId.value] = messages.value
+    }
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(data))
+  } catch (e) {
+    console.error('保存数据失败:', e)
+  }
+}
+
+const restoreAllData = () => {
+  try {
+    const savedData = localStorage.getItem(STORAGE_KEY)
+    if (savedData) {
+      const data = JSON.parse(savedData)
+
+      if (data.sessions) {
+        sessions.value = data.sessions
+      }
+
+      if (data.currentSessionId) {
+        sessionId.value = data.currentSessionId
+      }
+
+      if (data.messages && data.messages[sessionId.value]) {
+        messages.value = data.messages[sessionId.value]
+      }
+    }
+  } catch (e) {
+    console.error('恢复数据失败:', e)
+  }
+}
+
+const toggleSidebar = () => {
+  sidebarCollapsed.value = !sidebarCollapsed.value
+}
+
+const createNewSession = async () => {
+  if (loading.value) return
+
+  try {
+    const result = await apiCreateSession()
+    sessionId.value = result.session_id
+    messages.value = [
+      { role: 'ai', content: '主公，新的推演已开始，请吩咐。' }
+    ]
+    await refreshSessionList()
+    saveAllData()
+  } catch (error) {
+    sessionId.value = null
+    messages.value = [
+      { role: 'ai', content: '主公，新的推演已开始，请吩咐。' }
+    ]
+  }
+}
+
+const refreshSessionList = async () => {
+  try {
+    const result = await apiFetchSessions()
+    sessions.value = result.sessions || []
+    saveAllData()
+  } catch (error) {
+    console.error('刷新会话列表失败:', error)
+  }
+}
+
+const switchSession = async (id) => {
+  if (loading.value || id === sessionId.value) return
+
+  try {
+    const result = await apiFetchSession(id)
+    if (result.error) {
+      throw new Error(result.error)
+    }
+    sessionId.value = id
+    messages.value = result.messages
+    saveAllData()
+  } catch (error) {
+    try {
+      const savedData = localStorage.getItem(STORAGE_KEY)
+      if (savedData) {
+        const data = JSON.parse(savedData)
+        if (data.messages && data.messages[id]) {
+          sessionId.value = id
+          messages.value = data.messages[id]
+        }
+      }
+    } catch (e) {
+      console.error('本地恢复会话失败:', e)
+    }
+  }
+}
+
+const confirmDeleteSession = (id, title) => {
+  deleteSessionId.value = id
+  deleteDialogTitle.value = title
+  showDeleteDialog.value = true
+}
+
+const cancelDelete = () => {
+  showDeleteDialog.value = false
+  deleteSessionId.value = ''
+  deleteDialogTitle.value = ''
+}
+
+const executeDelete = async () => {
+  try {
+    await apiDeleteSession(deleteSessionId.value)
+
+    if (deleteSessionId.value === sessionId.value) {
+      if (sessions.value.length > 1) {
+        const otherSessions = sessions.value.filter(s => s.id !== deleteSessionId.value)
+        if (otherSessions.length > 0) {
+          await switchSession(otherSessions[0].id)
+        }
+      } else {
+        sessionId.value = null
+        messages.value = [
+          { role: 'ai', content: '主公，亮已就位，天下局势、商业布局、兴业之策，皆可垂询。' }
+        ]
+      }
+    }
+
+    await refreshSessionList()
+    cancelDelete()
+  } catch (error) {
+    console.error('删除会话失败:', error)
+  }
+}
+
+const sendMessage = async (text) => {
   if (!text || loading.value) return
 
-  // 重置状态
-  inputText.value = ''
-  streamAnswer.value = ''
   messages.value.push({ role: 'user', content: text })
   loading.value = true
-
-  await nextTick()
-  scrollToBottom()
-
-  // 初始化空AI消息，用于流式填充
   messages.value.push({ role: 'ai', content: '' })
-  const lastIndex = messages.value.length - 1
 
-  // 使用Fetch API + ReadableStream替代EventSource
-  const url = `http://localhost:8000/chat-stream?question=${encodeURIComponent(text)}`
-  console.log('开始流式请求，URL:', url)
-  
-  try {
-    const response = await fetch(url, {
-      method: 'GET',
-      headers: {
-        'Accept': 'text/event-stream',
-        'Cache-Control': 'no-cache'
+  sendChatRequest(
+    text,
+    sessionId.value,
+    (chunk) => {
+      const lastIndex = messages.value.length - 1
+      if (lastIndex >= 0) {
+        messages.value[lastIndex].content += chunk
       }
-    })
-    
-    console.log('响应状态:', response.status, response.statusText)
-    console.log('响应头:', Object.fromEntries(response.headers.entries()))
-    
-    if (!response.ok) {
-      throw new Error(`HTTP错误: ${response.status} ${response.statusText}`)
-    }
-    
-    if (!response.body) {
-      throw new Error('响应没有可读流')
-    }
-    
-    const reader = response.body.getReader()
-    const decoder = new TextDecoder()
-    
-    // 读取流数据
-    const readStream = async () => {
-      try {
-        while (true) {
-          const { done, value } = await reader.read()
-          
-          if (done) {
-            console.log('流读取完成')
-            loading.value = false
-            break
-          }
-          
-          // 解码数据
-          const chunk = decoder.decode(value, { stream: true })
-          console.log('收到数据块:', chunk)
-          
-          // 添加到答案
-          streamAnswer.value += chunk
-          messages.value[lastIndex].content = streamAnswer.value
-          scrollToBottom()
-        }
-      } catch (error) {
-        console.error('读取流时出错:', error)
-        
-        // 检查是否已经收到了一些数据
-        if (streamAnswer.value && streamAnswer.value.length > 0) {
-          console.log('已收到数据长度:', streamAnswer.value.length)
-          messages.value[lastIndex].content = streamAnswer.value
+    },
+    (error) => {
+      console.error('请求失败:', error)
+      const lastIndex = messages.value.length - 1
+      if (lastIndex >= 0) {
+        if (messages.value[lastIndex].content && messages.value[lastIndex].content.length > 0) {
         } else {
-          console.log('未收到任何数据')
           messages.value[lastIndex].content = '主公，推演链路受阻，请稍后再询。'
         }
-        loading.value = false
       }
+      loading.value = false
+    },
+    async (receivedSessionId) => {
+      if (receivedSessionId) {
+        sessionId.value = receivedSessionId
+      }
+      loading.value = false
+      await refreshSessionList()
+      saveAllData()
     }
-    
-    // 开始读取流
-    readStream()
-    
+  )
+}
+
+const restoreBackendSession = async () => {
+  if (!sessionId.value || !Array.isArray(messages.value) || messages.value.length === 0) {
+    return
+  }
+
+  try {
+    const historyForBackend = messages.value.filter(msg => msg.role !== 'system')
+      .map(msg => {
+        return {
+          role: msg.role === 'ai' ? 'assistant' : msg.role,
+          content: msg.content
+        }
+      })
+
+    const result = await apiRestoreSession(sessionId.value, historyForBackend)
+    if (result.session_id) {
+      sessionId.value = result.session_id
+      console.log('后端会话恢复成功:', result.session_id)
+    }
   } catch (error) {
-    console.error('请求失败:', error)
-    messages.value[lastIndex].content = '主公，推演链路受阻，请稍后再询。'
-    loading.value = false
+    console.error('恢复后端会话失败:', error)
   }
 }
 
-// 滚动到底部
-const scrollToBottom = () => {
-  if (chatBox.value) {
-    chatBox.value.scrollTop = chatBox.value.scrollHeight
-  }
-}
+onMounted(async () => {
+  showDeleteDialog.value = false
+  deleteSessionId.value = ''
+  deleteDialogTitle.value = ''
+  
+  restoreAllData()
+  await refreshSessionList()
+  await restoreBackendSession()
+})
 </script>
 
-<style scoped>
-/* 全局基础样式 */
+<style>
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+body {
+  font-family: 'Microsoft YaHei', sans-serif;
+  background-color: #0f172a;
+  color: #e2e8f0;
+  height: 100vh;
+  overflow: hidden;
+}
+
 .app-container {
+  display: flex;
+  height: 100vh;
   width: 100%;
-  min-height: 100vh;
-  display: flex;
-  flex-direction: column;
-  background: #070c16;
-  color: #e6c88c;
-  font-family: "PingFang SC", "Microsoft Yahei", sans-serif;
-}
-
-/* 顶部头部 */
-.header {
-  padding: 20px 16px;
-  text-align: center;
-  border-bottom: 1px solid #232d3f;
-  background: #0a101c;
-}
-
-.title-text {
-  font-size: 22px;
-  font-weight: 500;
-  letter-spacing: 2px;
-  color: #d4b878;
-}
-
-/* 聊天容器 */
-.chat-box {
-  flex: 1;
-  padding: 24px 16px;
-  overflow-y: auto;
-  display: flex;
-  flex-direction: column;
-  gap: 20px;
-  box-sizing: border-box;
-}
-
-/* 消息基础样式 */
-.msg {
-  display: flex;
-  width: 100%;
-}
-
-.msg.user {
-  justify-content: flex-end;
-}
-
-.msg.ai {
-  justify-content: flex-start;
-}
-
-.bubble {
-  max-width: 85%;
-  padding: 14px 18px;
-  border-radius: 16px;
-  line-height: 1.8;
-  font-size: 15px;
-  box-sizing: border-box;
-  text-align: left;
-}
-
-/* 用户消息气泡 */
-.user .bubble {
-  background: #2a3b55;
-  color: #f0e6d2;
-  border-bottom-right-radius: 4px;
-  text-align: right;
-}
-
-/* AI消息气泡 */
-.ai .bubble {
-  background: #121b2b;
-  color: #e6c88c;
-  border: 1px solid #283447;
-  border-bottom-left-radius: 4px;
-  text-align: left;
-}
-
-/* 加载动画样式 */
-.loading-wrap {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  text-align: left;
-}
-
-.fan-icon {
-  font-size: 18px;
-  animation: fanPulse 1.5s infinite ease-in-out;
-}
-
-.loading-text {
-  color: #b89f6e;
-}
-
-/* 羽扇脉冲动画 */
-@keyframes fanPulse {
-  0%, 100% {
-    opacity: 0.6;
-    transform: scale(1);
-  }
-  50% {
-    opacity: 1;
-    transform: scale(1.1);
-  }
-}
-
-/* 底部输入栏 */
-.input-bar {
-  display: flex;
-  padding: 16px;
-  gap: 12px;
-  border-top: 1px solid #232d3f;
-  background: #0a101c;
-}
-
-.input-bar input {
-  flex: 1;
-  padding: 14px 20px;
-  border-radius: 12px;
-  border: 1px solid #283447;
-  background: #121b2b;
-  color: #e6c88c;
-  font-size: 15px;
-  outline: none;
-  transition: all 0.3s ease;
-}
-
-.input-bar input:focus {
-  border-color: #d4b878;
-  box-shadow: 0 0 8px rgba(212, 184, 120, 0.2);
-}
-
-.input-bar button {
-  padding: 14px 24px;
-  border-radius: 12px;
-  background: linear-gradient(135deg, #c89a56, #b88948);
-  color: #070c16;
-  font-weight: 600;
-  border: none;
-  cursor: pointer;
-  transition: all 0.3s ease;
-}
-
-.input-bar button:hover:not(.disabled) {
-  opacity: 0.9;
-  transform: translateY(-2px);
-}
-
-.input-bar button.disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
-  transform: none;
-}
-
-/* 移动端自适应 */
-@media (max-width: 640px) {
-  .title-text {
-    font-size: 18px;
-  }
-  .bubble {
-    max-width: 90%;
-    font-size: 14px;
-    padding: 12px 16px;
-  }
-  .input-bar {
-    padding: 12px;
-  }
-  .input-bar button {
-    padding: 12px 18px;
-    font-size: 14px;
-  }
 }
 </style>
